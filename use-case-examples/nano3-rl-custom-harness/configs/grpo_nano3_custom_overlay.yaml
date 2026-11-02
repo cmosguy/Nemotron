@@ -1,0 +1,50 @@
+# Overrides on top of src/nemotron/recipes/nano3/stage2_rl/config/default.yaml (or tiny.yaml)
+# to add your harness environment to Nano3 GRPO. Lists replace, they do not append, so
+# config_paths repeats the six Nano3 environments.
+#
+#   uv run nemotron nano3 rl -c tiny --run YOUR-CLUSTER  ... plus these keys, or merge this file
+#   into a copy of the recipe config.
+#
+# Version note: training-token capture for external harnesses needs NeMo Gym >= 0.6, which is
+# newer than the Gym inside nvcr.io/nvidia/nemo-rl:v0.4.0.nemotron_3_nano. See README.
+
+data:
+  train_jsonl_fpath: /lustre/you/blend/train.jsonl        # from scripts/blend_rl.py
+  validation_jsonl_fpath: /lustre/you/blend/val.jsonl     # every row is evaluated each val_period
+  shuffle: false                                          # keep the curriculum order
+
+policy:
+  max_total_sequence_length: 49152    # whole agent trajectory (prompt + all turns) must fit
+  generation:
+    vllm_cfg:
+      skip_tokenizer_init: false      # required for token capture
+      http_server_serving_chat_kwargs:
+        enable_auto_tools: true
+        tool_parser: qwen3_coder      # Nano3's parser; your harness must send tools in the API, not in free text
+        reasoning_parser: deepseek_r1
+
+env:
+  should_use_nemo_gym: true
+  nemo_gym:
+    config_paths:
+    - responses_api_models/vllm_model/configs/vllm_model_for_training.yaml   # must be *_for_training
+    - resources_servers/math_with_judge/configs/math_with_judge.yaml
+    - resources_servers/code_gen/configs/code_gen.yaml
+    - resources_servers/workplace_assistant/configs/workplace_assistant.yaml
+    - resources_servers/mcqa/configs/mcqa.yaml
+    - resources_servers/instruction_following/configs/instruction_following.yaml
+    - resources_servers/structured_outputs/configs/structured_outputs_json.yaml
+    - resources_servers/my_task_env/configs/my_task_env.yaml                 # yours
+    token_id_capture:
+      enabled: true
+      dir: /tmp/nemo_gym_token_id_captures   # node-local
+      delta_records: true
+      max_mask_fraction: 0.5                 # stop if more than half the rollouts are masked
+    policy_model:
+      responses_api_models:
+        vllm_model:
+          sampling_overrides:                # harnesses often send their own sampling params
+            temperature: 1.0                 # match policy.generation.temperature
+            top_p: 1.0
+            top_k: -1
+    # (keep the math_with_judge and code_gen blocks from the recipe config here)

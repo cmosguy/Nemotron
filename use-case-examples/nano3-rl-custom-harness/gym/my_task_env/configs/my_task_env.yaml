@@ -1,0 +1,23 @@
+# NeMo Gym config: your Resources Server (verifier + tools) and the Agent Server that wraps
+# your harness. The agent's instance name ("my_harness_agent") must equal the
+# agent_ref.name written into your task rows (convert_trajectories.py rl --agent-name).
+my_task_env:
+  resources_servers:
+    my_task_env:
+      entrypoint: app.py
+      domain: agent
+      verified: false
+      description: Ops-ticket tasks replayed from production harness runs
+my_harness_agent:
+  responses_api_agents:
+    my_harness_agent:
+      entrypoint: app.py
+      resources_server:
+        type: resources_servers
+        name: my_task_env
+      model_server:
+        type: responses_api_models
+        name: policy_model          # the vLLM policy that NeMo RL is training
+      token_id_capture: true        # opt in: your harness returns text, not token ids
+      max_turns: 30
+      concurrency: 64
